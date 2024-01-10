@@ -7,19 +7,28 @@ In this repository, we provide source codes of scSemiGCN written in *Python*.
 * *Python* >=3.6
 * *Torch* >= 1.4.0
 
-#### Workflow
+#### Work flow
 
-The workflow of scSemiGCN is presented below.
+The work flow of scSemiGCN is presented below.
 
 <img src="./img/workflow.png" style="zoom:50%;" />
 
 #### Preparing data of cell-type annotation by scSemiGCN
 
-Fields of the mat file in our demo inlude:
+We provide two datasets as running examples. 
+
+* **seqdata.mat:** Constructed from Buettner[1].
+* **largeset.mat:** Constructed from Cortex[2]. The largeseqmat.mat file used in src_gpu can be downloaded from https://pan.baidu.com/s/15htOzVeUEDeA3mAcqq7eng?pwd=zw7p with password zw7p. Please note that  expression matrix in the  largeseqmat.mat is stored as *a sparse matrix*.
+
+[1] Wang, B. et al. (2017) Visualization and analysis of single cell RNA-seq data by kernel-based similarity learning. Nature Methods, 14, 414-416.
+
+[2] Dong, J. et al. (2022) scSemiAE: a deep model with semi-supervised learning for single-cell transcriptomics. BMC Bioinformatics, 23, 161.
+
+Fields of the mat files include:
 
 * **feature**:  The #cell x #genes  expression matrix with ***annotated cells followed by unannotated cells***.
 
-* **similarity**: Similarites between cells learned by **[SIMLR](https://github.com/BatzoglouLabSU/SIMLR)**,  a #cell x # cell matrix. Users can also try different simiarities (e.g gaussian kernel similarites)
+* **similarity**: Similarities between cells learned by **[SIMLR](https://github.com/BatzoglouLabSU/SIMLR)**,  a #cell x # cell matrix. Users can also try different simiarities (e.g gaussian kernel similarites)
 * **annotation**: Indication of annotation, a #cell x 1 matrix.  Annotation for cells are indicated by positive integers and unannotated cells are indicated by -1.
 
 Rows of the all three fields should be ***matched***.
@@ -56,4 +65,4 @@ python main.py --Nk 18 --alpha 0.5 --round 10 --dropout 0.5 --slr 0.05 --weight_
 
 Prediction of annotation for unannotated cells is saved as a csv file in the output directory along with a well-trained cell-type annotation model.
 
-Please refer to directories src and src_gpu and the file tutorial.ipynb for further detials.
+Please refer to directories src and src_gpu and the file tutorial.ipynb (see the src directory) for further details.
