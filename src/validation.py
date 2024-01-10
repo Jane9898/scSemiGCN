@@ -1,12 +1,9 @@
-import logging
-import os
 import torch
 import numpy as np
 from sklearn import metrics
 from sklearn.metrics import f1_score
 from sklearn.metrics import auc
 from sklearn.preprocessing import label_binarize
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 def eval(pro, dataload, num_class):
     y_pred_l = []
@@ -44,3 +41,17 @@ def eval(pro, dataload, num_class):
 
 
 
+def make_prediction(pro, testdata):
+    y_pred = []
+    sample_idx = []
+    with torch.no_grad():
+        for idx in testdata:
+            x_ = pro[idx.long()]
+            y_pred_ = torch.argmax(x_,-1,False) + 1
+            y_pred.append(y_pred_)
+            sample_idx.append(idx)
+  
+    y_pred = torch.cat(y_pred, dim=0)
+    sample_idx = torch.cat(sample_idx, dim=0)
+    prediction = torch.stack((sample_idx, y_pred))
+    return prediction.T.cpu().numpy()

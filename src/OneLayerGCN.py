@@ -12,7 +12,7 @@ class preprocessor(nn.Module):
         self.linear2 = nn.Linear(dim,dim)
         self.linear3 = nn.Linear(128,32)
 
-        self.dropout = nn.Dropout(p=0.7)
+        self.dropout = nn.Dropout(p=dropout)
         self.adj = adj
         self.layers = nn.Sequential(GraphConvolution(dim, dim,
                                                  activation=F.relu,

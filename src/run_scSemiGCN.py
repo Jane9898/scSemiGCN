@@ -1,7 +1,7 @@
 import enhancement
 import torch
 import numpy as np
-from scipy.io import loadmat
+from scipy.io import loadmat, savemat
 import argparse
 from torch.utils.data import DataLoader
 from TwoLayerGCN import GCN
@@ -12,9 +12,11 @@ import torch.nn as nn
 import enhancement
 import random
 import  os
-from PseudoLabels import pseudo_labels, knn_similarity
+# from PseudoLabels import pseudo_labels, knn_similarity
 from contrastive_loss import contrastive_loss
 from OneLayerGCN import preprocessor
+import pandas as pd
+import anndata as ad
 
 
 def seed_torch(seed=1029):
@@ -91,7 +93,7 @@ def train(model, features, loss, optimizer, train_datasest, val_dataset, test_da
     pro = model(features)
     eval_test = eval(pro, test_dataset, num_class)
     print('best_epoch:%d,test_acc:%.4f,test_f1:%.4f,test_auc:%.4f,val_acc:%.4f,val_f1:%.4f,val_auc:%.4f'%(best_epoch,eval_test[0],eval_test[1],eval_test[2],best_val_acc,best_val_f1,best_val_auc))
-
+    return eval_test[0]
 
 def params():
     args = argparse.ArgumentParser()
@@ -115,8 +117,14 @@ def params():
 
 if __name__=="__main__":
 
-    seed_torch(1028)
-    args = params()
+    seed_torch()
+    # args = params()
+    # data = loadmat("seqdata.mat")
+
+    # adj = data["similarity"]
+    # labels = data["annotation"]
+    # feature = data["feature"]
+    # print()
 
     data = loadmat('Buettner.mat')
     feature = torch.from_numpy(data['in_X'])
@@ -125,32 +133,54 @@ if __name__=="__main__":
     num_class = len(np.unique(labels))
 
     adj = data['S']
-    adj = enhancement.network_enhancement(adj, 2, 22, 0.5) 
-    adj = torch.from_numpy(adj)
-    adj = adj.to(torch.float32)
+    # # adj = enhancement.network_enhancement(adj, 2, 18, 0.5) 
+    # # adj = torch.from_numpy(adj)
+    # # adj = adj.to(torch.float32)
     
-    premodel = preprocessor(feat_dim, args.dropout, adj)
-    net = GCN(feat_dim, args.hidden, num_class, args.dropout, adj)
+    # # premodel = preprocessor(feat_dim, args.dropout, adj)
+    # # net = GCN(feat_dim, args.hidden, num_class, args.dropout, adj)
     
     fea_lab = [feature, labels]
     generate = trian_val_test(fea_lab,0.95,0.5)
     train_dataset_, val_dataset_, test_dataset_, train_idx, val_idx, test_idx = generate.generate_train_val()
+    reorder_idx = np.hstack((train_idx, test_idx, val_idx))
+
+    reorder_adj_ = adj[reorder_idx, :]
+    reorder_adj = reorder_adj_[:, reorder_idx]
+
+    feature_ = feature.numpy()
+    reorder_feature = feature_[reorder_idx, :]
+    seqdata = ad.AnnData(reorder_feature, dtype=reorder_feature.dtype)
+    labels_ = np.int32(labels[reorder_idx].ravel())
+    for i in range(len(labels)):
+        if i>= len(train_idx):
+            labels_[i] = -1
+        else:
+            labels_[i] = labels_[i]
     
-    train_dataset = DataLoader(train_dataset_,batch_size=args.batch_size,shuffle=True)
-    val_dataset = DataLoader(val_dataset_,batch_size=args.batch_size,shuffle=True)
-    test_dataset = DataLoader(test_dataset_,batch_size=args.batch_size, shuffle=True)
+    seqdata.obs["cell_type"] = pd.Categorical(labels_)
+    seqdata.obsm["similarity"] = reorder_adj
+    print(seqdata)
+    # seqdata.write("demo_data.h5ad", compression="gzip")
+    # seqdata.write_csvs("demo_data")
+    mdict = {"feature": reorder_feature, "annotation": labels_, "similarity": reorder_adj}
+    savemat("seqdata.mat", mdict)
+
+    # train_dataset = DataLoader(train_dataset_,batch_size=args.batch_size,shuffle=True)
+    # val_dataset = DataLoader(val_dataset_,batch_size=args.batch_size,shuffle=True)
+    # test_dataset = DataLoader(test_dataset_,batch_size=args.batch_size, shuffle=True)
 
 
-    pseudo_labels = knn_similarity(train_idx, labels, test_idx, val_idx, adj, 1)
+    # pseudo_labels = knn_similarity(train_idx, labels, test_idx, val_idx, adj, 1)
 
 
-    loss = nn.CrossEntropyLoss(reduction="mean")
+    # loss = nn.CrossEntropyLoss(reduction="mean")
 
-    optimizer1 = torch.optim.SGD(params=premodel.parameters(),lr=args.slr, weight_decay=1e-2)
-    optimizer2 = torch.optim.Adam(params=net.parameters(), lr=args.glr)
+    # optimizer1 = torch.optim.SGD(params=premodel.parameters(),lr=args.slr, weight_decay=1e-2)
+    # optimizer2 = torch.optim.Adam(params=net.parameters(), lr=args.glr)
     
-    print("#"*40, "Feature Refinement", "#"*40)
-    feature_new = pretrain(premodel,feature,pseudo_labels, contrastive_loss, optimizer1).detach()
+    # print("#"*40, "Feature Refinement", "#"*40)
+    # feature_new = pretrain(premodel,feature,pseudo_labels, contrastive_loss, optimizer1).detach()
 
-    print("#"*40, "Cell Type Annotation", "#"*40)
-    train(net, feature_new, loss, optimizer2, train_dataset, val_dataset, test_dataset, num_class, args.epoch)
+    # print("#"*40, "Cell Type Annotation", "#"*40)
+    # test_acc = train(net, feature_new, loss, optimizer2, train_dataset, val_dataset, test_dataset, num_class, args.epoch)
